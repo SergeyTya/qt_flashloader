@@ -1,0 +1,225 @@
+#include "mainwindow.h"
+#include "ui_mainwindow.h"
+#include <QDebug>
+#include <iostream>
+#include <QString>
+#include <QSerialPortInfo>
+#include <QThread>
+
+#include <QFileDialog>
+#include <QFile>
+
+
+
+MainWindow::MainWindow(QWidget *parent) :
+    QMainWindow(parent),
+    ui(new Ui::MainWindow)
+{
+    ui->setupUi(this);
+    MainWindow::get_SysPorts();
+    if(ui->comboBox_PortName->count()>1)ui->comboBox_PortName->setCurrentIndex(1);
+    ui->statusBar->showMessage("Hет соединения");
+
+    ui->lineEdit_madr->setValidator( new QIntValidator(1, 255, this) );
+
+    if(thread_bloader!= nullptr) return;
+    thread_bloader= new QThread;//Создаем поток для порта платы
+    bloader = new bootloader();//Создаем обьект по классу
+    bloader->moveToThread(thread_bloader);//помешаем класс  в поток
+    bloader->Port.moveToThread(thread_bloader);
+
+    connect(thread_bloader, SIGNAL(started()), bloader, SLOT(process()));//Переназначения метода run
+    connect(bloader, SIGNAL(close()), thread_bloader, SLOT(quit()));//Переназначение метода выход
+    connect(thread_bloader, SIGNAL(finished()), bloader, SLOT(deleteLater()));//Удалить к чертям поток
+    connect(bloader, SIGNAL(close()), thread_bloader, SLOT(deleteLater()));//Удалить к чертям поток
+    connect(this, SIGNAL(connect_(QString, int, int)), bloader, SLOT(connect_(QString, int, int))); //
+    connect(bloader, SIGNAL(writelog(QString, QString)), this, SLOT(writelog(QString, QString))); // лог
+
+    thread_bloader->start();
+
+}
+
+void MainWindow::get_SysPorts()
+{
+    if(ui->comboBox_PortName->count() > 1 ) for(int i=1; i< ui->comboBox_PortName->count()+1 ; i++) ui->comboBox_PortName->removeItem(i); //delete rows
+    const auto infos = QSerialPortInfo::availablePorts(); // get avaliable ports
+    if(infos.size()==0){ ui->comboBox_PortName->setCurrentIndex(0); return;};
+    for (const QSerialPortInfo &info : infos) ui->comboBox_PortName->addItem(info.portName()); // add new ports
+}
+
+MainWindow::~MainWindow()
+{
+    delete ui;
+}
+
+
+void MainWindow::on_pushButton_Connect_clicked()
+{
+  /*
+    if(ui->comboBox_PortName->currentIndex()==0) {qDebug()<<"port is'n selected"; return;};
+    if(bloader->Port.isOpen()) return;
+    connect_(ui->comboBox_PortName->currentText(), ui->comboBox_PortSpeed->currentText().toInt(), ui->lineEdit_madr->text().toInt());
+    */
+    readHex();
+}
+
+
+void MainWindow::on_comboBox_PortName_activated(int index)
+{
+    if(index==0){
+    MainWindow::get_SysPorts();
+    ui->comboBox_PortName->showPopup();
+    };
+}
+
+void MainWindow::writelog(QString msg, QString src)
+{
+    ui->consol->textCursor().insertText(src+"> "+msg+'\r'); // Вывод текста в консоль
+    ui->consol->moveCursor(QTextCursor::End);//Scroll
+};
+
+bool MainWindow::readHex()
+{
+    bool endfile = false; //
+    bool endrecord = false; //
+    int count=0; // номер записи по счету
+    int adrcount = 0; // адрес полученный из номера записи
+    int baseadr = 0; // базовый адрес
+    int size = 0; // размер данных в одной записи
+    int adr = 0;  //смещение адреса от базового
+    int type = 0; // тип записи
+    int crc=0;    // crc записи
+    QByteArray str; // считанная строка
+    char tempbt[256]; //массив для формирования блока данных
+    QString temp_listrecord = "";
+
+
+
+    QString Filename = QFileDialog::getOpenFileName( this,QString("Открыть файл"), QString(),QString("Файл прошивки (*.hex)"));
+
+    _mBDEBUG(Filename);
+    QFile file (Filename);
+    if(file.isOpen())file.close();
+    if(!file.open(QIODevice::ReadOnly)) {_mBDEBUG("Ошибка открытия файла"); file.close(); return false;};
+
+
+    while(true){
+        str= file.readLine();
+        if(str.count()==0) break;
+        if (str.indexOf(":") != 0)
+        {
+            _mBDEBUG("Ошибка чтения 1");
+            str="false";
+            break;
+        };
+
+        size = str.mid(1,2).toInt(nullptr,16)+4;
+        if(size==4) // если размер 0
+        {
+            if(str.mid(1+3*2,2).toInt(nullptr,16)==0x1) // проверка типа записии 0x1 - конец файла
+            {
+                _mBDEBUG("Конец файла. Всего записей "+ QString::number(count));
+                str="";
+                break;
+            }else {
+                _mBDEBUG("Ошибка чтения 3. Строка " + QString::number(count));
+                str="false"; break;
+            };
+        };
+        //читаю данные в масив
+        char * fulldata = new char[size]();
+        crc=0;
+        for(int i=0; i<size; i++)
+        {
+            fulldata[i]= static_cast <char> (str.mid(1+i*2,2).toInt(nullptr,16));
+            crc+=fulldata[i];
+
+        };
+        crc =0xff&(0 - crc);
+       //
+        if (crc != str.mid(3+(size-1)*2,2).toInt(nullptr,16)) { _mBDEBUG("Ошибка crc");str="false"; break;};
+       // заполняю атрибуты
+        size = fulldata[0];
+        type = fulldata[3];
+        adr = (fulldata[1] << 8) + fulldata[2];
+
+        if (type == 1) { FSize = adrcount; endrecord = true; break; }
+        if (type == 4)
+        {
+            baseadr = (fulldata[4] << 24) + (fulldata[5] << 16);
+            if (bAdrForSend == 0) bAdrForSend = baseadr;
+            adrcount = 0;
+            continue;
+        };
+        if (type == 5) continue;
+        /*в начале файла задаю базовое смещение*/
+        if (FileHexData.count() == 0) { adrcount = adr; };
+        /* пишу в лист стартовый адрес каждого блока */
+        if (count == 0)
+        {
+            int temp = baseadr + adrcount;
+            _mBDEBUG( " - "+ QString::number(temp,16));
+
+            char * tempadr = new char[4]();
+
+           tempadr[0]= static_cast<char>(temp >> 0 );
+           tempadr[1]= static_cast<char>(temp >> 8 );
+           tempadr[2]= static_cast<char>(temp >> 16);
+           tempadr[3]= static_cast<char>(temp >> 24);
+
+            AdrHexData.append(tempadr);
+        };
+
+        /* проверка на пропущенные строки по адресу*/
+        if (adr != adrcount) {
+         //   _mBDEBUG("Ошибка чтения 4");str="false"; break;
+        };
+        adrcount += size;
+        count++;
+         /*заполняю лист: одна запись - 64 адреса по 4 байта */
+        temp_listrecord += str.mid(9, size * 2); // накапливаю часть строки с данными
+        if (count == 16)
+        {
+            for(int i=0; i<256; i++)
+            {
+                tempbt[i] =static_cast<char> (0xFF);
+                if (i < temp_listrecord.length() / 2) tempbt[i] = static_cast <char> (str.mid(i*2,2).toInt(nullptr,16));
+            }
+            FileHexData.append(tempbt);
+            /*сбрасываю временные переменные*/
+            temp_listrecord = "";
+            count = 0;
+        };
+
+      //_mBDEBUG( QString::number(crc,16)+ "==" + str.mid(3+(size-1)*2,2));
+      // _mBDEBUG("Count "+ QString::number(count)+": "+QString::number(size,10) + "==" + str.mid(1,2));
+        delete [] fulldata;
+    }
+
+    /* если не было последней записи - ошибка*/
+    if (!endrecord ) {_mBDEBUG("Ненайден конец файла");str="false";}
+
+   /*для последней страницы количество байт которой меньше 256*/
+    if (endfile && count != 0 && str!="false"){
+        for(int i=0; i<256; i++)
+        {
+            tempbt[i] =static_cast<char> (0xFF);
+            if (i < temp_listrecord.length() / 2) tempbt[i] = static_cast <char> (str.mid(i*2,2).toInt(nullptr,16));
+        }
+        FileHexData.append(tempbt);
+    }
+
+
+
+    if(str=="false")_mBDEBUG("печаль :((");
+    file.close();
+
+
+    for(int i=0; i<AdrHexData.count();i++){
+        int tmp = AdrHexData[i][0]+(AdrHexData[i][1]<<8)+(AdrHexData[i][2]<<16)+(AdrHexData[i][3]<<24);
+        _mBDEBUG( "Строка "+QString::number(i,10)+" - "+ QString::number(tmp,16));
+    }
+
+    return true;
+}
+
