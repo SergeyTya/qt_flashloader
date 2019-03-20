@@ -4,11 +4,14 @@
 #include <QTest>
 #include <iostream>
 
+
 int main(int argc, char *argv[])
 {
+
     QApplication a(argc, argv);
 
-    QTest::qExec(new test, argc, argv);
+
+//    QTest::qExec(new test, argc, argv);
 
     MainWindow w;
     w.show();

@@ -5,7 +5,7 @@
 #include <QString>
 #include <QSerialPortInfo>
 #include <QThread>
-
+#include <QTextBlock>
 #include <QFileDialog>
 #include <QFile>
 
@@ -18,7 +18,7 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->setupUi(this);
     MainWindow::get_SysPorts();
     if(ui->comboBox_PortName->count()>1)ui->comboBox_PortName->setCurrentIndex(1);
-    ui->statusBar->showMessage("Hет соединения");
+    ui->statusBar->showMessage("выберите действие");
 
     ui->lineEdit_madr->setValidator( new QIntValidator(1, 255, this) );
 
@@ -32,8 +32,9 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(bloader, SIGNAL(close()), thread_bloader, SLOT(quit()));//Переназначение метода выход
     connect(thread_bloader, SIGNAL(finished()), bloader, SLOT(deleteLater()));//Удалить к чертям поток
     connect(bloader, SIGNAL(close()), thread_bloader, SLOT(deleteLater()));//Удалить к чертям поток
-    connect(this, SIGNAL(connect_(QString, int, int)), bloader, SLOT(connect_(QString, int, int))); //
-    connect(bloader, SIGNAL(writelog(QString, QString)), this, SLOT(writelog(QString, QString))); // лог
+    connect(this, SIGNAL(connect_(QString, int, int, int)), bloader, SLOT(connect_(QString, int, int, int))); //
+    connect(bloader, SIGNAL(writelog(QString, QString, bool)), this, SLOT(writelog(QString, QString,bool))); // лог
+    connect(bloader, SIGNAL(setStatus(QString)), this, SLOT(on_bootloader_Status_changed(QString)));
 
     thread_bloader->start();
 
@@ -55,14 +56,8 @@ MainWindow::~MainWindow()
 
 void MainWindow::on_pushButton_Connect_clicked()
 {
-  /*
-    if(ui->comboBox_PortName->currentIndex()==0) {qDebug()<<"port is'n selected"; return;};
-    if(bloader->Port.isOpen()) return;
-    connect_(ui->comboBox_PortName->currentText(), ui->comboBox_PortSpeed->currentText().toInt(), ui->lineEdit_madr->text().toInt());
-    */
 
-   bloader->Filename = QFileDialog::getOpenFileName( this,QString("Открыть файл"), QString(),QString("Файл прошивки (*.hex)"));
-   connect_(ui->comboBox_PortName->currentText(), ui->comboBox_PortSpeed->currentText().toInt(), ui->lineEdit_madr->text().toInt());
+  connect_(ui->comboBox_PortName->currentText(), ui->comboBox_PortSpeed->currentText().toInt(), ui->lineEdit_madr->text().toInt(),0);
 
 }
 
@@ -75,10 +70,73 @@ void MainWindow::on_comboBox_PortName_activated(int index)
     };
 }
 
-void MainWindow::writelog(QString msg, QString src)
+void MainWindow::writelog(QString msg, QString src, bool del)
 {
+    if(del==true)
+    {
+        int lineToDelete = ui->consol->document()->lineCount()-2;
+        QTextBlock b =ui->consol->document()->findBlockByLineNumber(lineToDelete);
+        if (b.isValid())
+        {
+            QTextCursor cursor(b);
+            cursor.select(QTextCursor::BlockUnderCursor);
+            cursor.removeSelectedText();
+        };
+    };
+    if(msg=="")return;
     ui->consol->textCursor().insertText(src+"> "+msg+'\r'); // Вывод текста в консоль
     ui->consol->moveCursor(QTextCursor::End);//Scroll
 };
 
 
+
+void MainWindow::on_pushButton_compare_clicked()
+{
+    bloader->Filename = nullptr;
+    bloader->Filename = QFileDialog::getOpenFileName( this,QString("Открыть файл"), QString(),QString("Файл прошивки (*.hex)"));
+    if(bloader->Filename == nullptr) return;
+
+    connect_(ui->comboBox_PortName->currentText(),
+             ui->comboBox_PortSpeed->currentText().toInt(),
+             ui->lineEdit_madr->text().toInt(),
+            this->LDR_CMD::CMPR);
+
+};
+
+void MainWindow::on_pushButton_test_clicked()
+{
+    int cmd =  this->LDR_CMD::LTST;
+    if(this->ui->checkBox_nativeboot->isChecked()) cmd =  this->LDR_CMD::NLTS;
+
+    connect_(ui->comboBox_PortName->currentText(),
+             ui->comboBox_PortSpeed->currentText().toInt(),
+             ui->lineEdit_madr->text().toInt(),
+             cmd);
+}
+
+void MainWindow::on_pushButton_reset_clicked()
+{
+    connect_(ui->comboBox_PortName->currentText(),
+             ui->comboBox_PortSpeed->currentText().toInt(),
+             ui->lineEdit_madr->text().toInt(),
+            this->LDR_CMD::_RST);
+}
+
+void MainWindow::on_pushButton_search_clicked()
+{
+    connect_(ui->comboBox_PortName->currentText(),
+             ui->comboBox_PortSpeed->currentText().toInt(),
+             ui->lineEdit_madr->text().toInt(),
+            this->LDR_CMD::SRCH);
+}
+
+void MainWindow::on_pushButton_break_clicked()
+{
+    if(!bloader->blnBreakReq && bloader->busy)bloader->blnBreakReq=true;
+    if(!bloader->busy)bloader->blnBreakReq=false;
+}
+
+void MainWindow::on_bootloader_Status_changed(QString status)
+{
+    this->ui->statusBar->showMessage(status);
+}

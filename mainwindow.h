@@ -21,18 +21,46 @@ public:
 
 signals:
 
-    void connect_(QString, int, int);
+    void connect_(QString Port, int speed, int adr, int command);
 
 private slots:
     void get_SysPorts();
-    void writelog(QString msg, QString src);
+    void writelog(QString, QString, bool);
+
     void on_pushButton_Connect_clicked();
+
     void on_comboBox_PortName_activated(int index);
+
+    void on_pushButton_compare_clicked();
+
+    void on_pushButton_test_clicked();
+
+    void on_pushButton_reset_clicked();
+
+    void on_pushButton_search_clicked();
+
+    void on_pushButton_break_clicked();
+
+    void on_bootloader_Status_changed(QString status);
 
 private:
     Ui::MainWindow *ui;
     QThread * thread_bloader = nullptr;
     bootloader * bloader = nullptr;
+
+    enum  LDR_CMD{
+
+        SRCH = 1,
+        FLSH = 2,
+        CMPR = 3,
+        SAVE = 4,
+        LTST = 5,
+        EFLH = 6,
+        EPRM = 7,
+        _RST = 8,
+        CHNL = 9,
+        NLTS = 10
+    };
 
 };
 
