@@ -8,6 +8,7 @@
 #include <QTextBlock>
 #include <QFileDialog>
 #include <QFile>
+#include <QMessageBox>
 
 
 
@@ -54,14 +55,6 @@ MainWindow::~MainWindow()
 }
 
 
-void MainWindow::on_pushButton_Connect_clicked()
-{
-
-  connect_(ui->comboBox_PortName->currentText(), ui->comboBox_PortSpeed->currentText().toInt(), ui->lineEdit_madr->text().toInt(),0);
-
-}
-
-
 void MainWindow::on_comboBox_PortName_activated(int index)
 {
     if(index==0){
@@ -84,7 +77,7 @@ void MainWindow::writelog(QString msg, QString src, bool del)
         };
     };
     if(msg=="")return;
-    ui->consol->textCursor().insertText(src+"> "+msg+'\r'); // Вывод текста в консоль
+    ui->consol->textCursor().insertText(src+" "+msg+'\r'); // Вывод текста в консоль
     ui->consol->moveCursor(QTextCursor::End);//Scroll
 };
 
@@ -105,13 +98,10 @@ void MainWindow::on_pushButton_compare_clicked()
 
 void MainWindow::on_pushButton_test_clicked()
 {
-    int cmd =  this->LDR_CMD::LTST;
-    if(this->ui->checkBox_nativeboot->isChecked()) cmd =  this->LDR_CMD::NLTS;
-
     connect_(ui->comboBox_PortName->currentText(),
              ui->comboBox_PortSpeed->currentText().toInt(),
              ui->lineEdit_madr->text().toInt(),
-             cmd);
+             this->LDR_CMD::LTST);
 }
 
 void MainWindow::on_pushButton_reset_clicked()
@@ -132,11 +122,114 @@ void MainWindow::on_pushButton_search_clicked()
 
 void MainWindow::on_pushButton_break_clicked()
 {
-    if(!bloader->blnBreakReq && bloader->busy)bloader->blnBreakReq=true;
+    if(!bloader->blnBreakReq && bloader->busy)
+    {
+        QMessageBox msgBox;
+        msgBox.setWindowTitle("Внимание!");
+        msgBox.setInformativeText("Отменить текущее действие?");
+        msgBox.setStandardButtons(QMessageBox::Ok | QMessageBox::Cancel);
+        msgBox.setIcon(QMessageBox::Warning);
+        msgBox.setDefaultButton(QMessageBox::Ok);
+        int res = msgBox.exec();
+        if (res == QMessageBox::Ok) bloader->blnBreakReq=true;
+    }
     if(!bloader->busy)bloader->blnBreakReq=false;
 }
 
 void MainWindow::on_bootloader_Status_changed(QString status)
 {
     this->ui->statusBar->showMessage(status);
+}
+
+void MainWindow::on_pushButton_prog_clicked()
+{
+    if(bloader->busy) return;
+
+    QMessageBox msgBox;
+    msgBox.setWindowTitle("Внимание!");
+    msgBox.setInformativeText("Flash память будет перезаписана!\nНе отключайте питание до окончания процесса!\n\n\n Продолжить?");
+    msgBox.setStandardButtons(QMessageBox::Ok | QMessageBox::Cancel);
+    msgBox.setIcon(QMessageBox::Warning);
+    msgBox.setDefaultButton(QMessageBox::Ok);
+    int res = msgBox.exec();
+    if (res == QMessageBox::Ok) //нажата кнопка Ok
+    {
+        bloader->Filename = nullptr;
+        bloader->Filename = QFileDialog::getOpenFileName( this,QString("Открыть файл"), QString(),QString("Файл прошивки (*.hex)"));
+        if(bloader->Filename == nullptr) return;
+
+        connect_(ui->comboBox_PortName->currentText(),
+                 ui->comboBox_PortSpeed->currentText().toInt(),
+                 ui->lineEdit_madr->text().toInt(),
+                this->LDR_CMD::FLSH);
+    }
+    else //отмена
+    {return;}
+
+}
+
+void MainWindow::on_pushButton_eraseflash_clicked()
+{
+    if(bloader->busy) return;
+
+    QMessageBox msgBox;
+    msgBox.setWindowTitle("Внимание!");
+    msgBox.setInformativeText("Flash память будет стерта!\n\n\n Продолжить?");
+    msgBox.setStandardButtons(QMessageBox::Ok | QMessageBox::Cancel);
+    msgBox.setIcon(QMessageBox::Warning);
+    msgBox.setDefaultButton(QMessageBox::Ok);
+    int res = msgBox.exec();
+
+    if (res == QMessageBox::Ok) //нажата кнопка Ok
+    {
+        connect_(ui->comboBox_PortName->currentText(),
+                 ui->comboBox_PortSpeed->currentText().toInt(),
+                 ui->lineEdit_madr->text().toInt(),
+                 this->LDR_CMD::EFLH);
+    }
+    else //отмена
+    {return;}
+}
+
+void MainWindow::on_pushButton_save_clicked()
+{
+    bloader->Filename = nullptr;
+    bloader->Filename = QFileDialog::getSaveFileName(this,QString("Сохранить"), QString(),QString("Файл прошивки (*.hex)"));
+    if(bloader->Filename == nullptr) return;
+
+    connect_(ui->comboBox_PortName->currentText(),
+             ui->comboBox_PortSpeed->currentText().toInt(),
+             ui->lineEdit_madr->text().toInt(),
+            this->LDR_CMD::SAVE);
+}
+
+void MainWindow::on_pushButton_nattest_clicked()
+{
+    connect_(ui->comboBox_PortName->currentText(),
+             ui->comboBox_PortSpeed->currentText().toInt(),
+             ui->lineEdit_madr->text().toInt(),
+             this->LDR_CMD::NLTS);
+}
+
+void MainWindow::on_pushButton_eraseprog_clicked()
+{
+    if(bloader->busy) return;
+
+    QMessageBox msgBox;
+    msgBox.setWindowTitle("Внимание!");
+    msgBox.setInformativeText("Память настроек будет стерта!\n\n\n Продолжить?");
+    msgBox.setStandardButtons(QMessageBox::Ok | QMessageBox::Cancel);
+    msgBox.setIcon(QMessageBox::Warning);
+    msgBox.setDefaultButton(QMessageBox::Ok);
+    int res = msgBox.exec();
+
+    if (res == QMessageBox::Ok) //нажата кнопка Ok
+    {
+        connect_(ui->comboBox_PortName->currentText(),
+                 ui->comboBox_PortSpeed->currentText().toInt(),
+                 ui->lineEdit_madr->text().toInt(),
+                 this->LDR_CMD::EPRM);
+    }
+    else //отмена
+    {return;}
 }

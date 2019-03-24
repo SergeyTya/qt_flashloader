@@ -39,6 +39,8 @@ public slots:
     int getBootID();
     int Reboot();
     int getNativeBoot();
+    int eraseFlash();
+    int eraseParam();
 
 private:
    int devAdr;
@@ -54,6 +56,24 @@ private:
    bool setModbusToBootCmd();
 
    bool clsCon(int);
+
+   enum  resState{
+       OK            =  0,
+       OpenFileError = -1,
+       LineStartError= -2,
+       CRCError      = -3,
+       BaseAdrEror   = -4,
+       ShiftAdrError = -5,
+       EndFileError  = -6,
+       ImageEmpty    = -7,
+       PortIsClose   = -8,
+       TimeOut       = -9,
+       canceled      = -10,
+       FileNotFound  = -11,
+       LoaderNotFound = -12,
+       Done          = -13,
+       EMPTY         =  255
+   };
 
 
 };

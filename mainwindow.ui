@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>669</width>
-    <height>586</height>
+    <width>676</width>
+    <height>532</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -17,11 +17,20 @@
    <widget class="QPlainTextEdit" name="consol">
     <property name="geometry">
      <rect>
-      <x>70</x>
+      <x>20</x>
       <y>20</y>
-      <width>421</width>
-      <height>401</height>
+      <width>471</width>
+      <height>451</height>
      </rect>
+    </property>
+    <property name="font">
+     <font>
+      <family>Arial</family>
+      <pointsize>12</pointsize>
+     </font>
+    </property>
+    <property name="autoFillBackground">
+     <bool>false</bool>
     </property>
    </widget>
    <widget class="QWidget" name="verticalLayoutWidget">
@@ -30,7 +39,7 @@
       <x>510</x>
       <y>20</y>
       <width>151</width>
-      <height>405</height>
+      <height>432</height>
      </rect>
     </property>
     <layout class="QVBoxLayout" name="verticalLayout">
@@ -143,6 +152,13 @@
       </widget>
      </item>
      <item>
+      <widget class="QPushButton" name="pushButton_nattest">
+       <property name="text">
+        <string>Загрузчик 1986ВЕ9х</string>
+       </property>
+      </widget>
+     </item>
+     <item>
       <widget class="QPushButton" name="pushButton_eraseflash">
        <property name="text">
         <string>Стереть Flash</string>
@@ -172,26 +188,13 @@
      </item>
     </layout>
    </widget>
-   <widget class="QPushButton" name="pushButton_connect">
-    <property name="geometry">
-     <rect>
-      <x>500</x>
-      <y>460</y>
-      <width>149</width>
-      <height>21</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>Соединить</string>
-    </property>
-   </widget>
   </widget>
   <widget class="QMenuBar" name="menuBar">
    <property name="geometry">
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>669</width>
+     <width>676</width>
      <height>20</height>
     </rect>
    </property>
