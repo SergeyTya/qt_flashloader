@@ -116,7 +116,7 @@ void MainWindow::on_pushButton_reset_clicked()
 
 void MainWindow::on_pushButton_search_clicked()
 {
-    QString name="/dev/"+ui->comboBox_PortName->currentText();
+    QString name=ui->comboBox_PortName->currentText();
 
     connect_(name,
              ui->comboBox_PortSpeed->currentText().toInt(),
