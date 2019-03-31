@@ -36,11 +36,17 @@ bool bootloader::clsCon(int res)
 
     switch(res)
     {
-        case bootloader::resState::Done     :writelog("-------< Завершено","",false);
+    case bootloader::resState::Done       : writelog("-------< Завершено","",false);
         return true;
-        case bootloader::resState::canceled :writelog("-------< Действие отменено!","",false);
+    case bootloader::resState::canceled   : writelog("-------< Действие отменено","",false);
         return true;
-        default : writelog("-------< Завершено c ошибкой "+ QString::number(res),"",false);
+    case bootloader::resState::PortIsClose: writelog("-------< Ошибка открытия порта","",false);
+        return true;
+    case bootloader::resState::TimeOut:     writelog("-------< Таймаут","",false);
+        return true;
+    case bootloader::resState::LoaderNotFound:     writelog("-------< Загрузчик ненайден","",false);
+        return true;
+    default : writelog("-------< Завершено c ошибкой "+ QString::number(res),"",false);
         break;
     };
 
@@ -82,7 +88,8 @@ void bootloader::connect_(QString name, int BaudRate , int adr, int cmd){
       _mBDEBUG("Порт " + name + " открыт");
       } else {
       _mBDEBUG("Ошибка открытия порта " + name);
-      clsCon(-1);
+      qDebug()<<Port.errorString();
+      clsCon(bootloader::resState::PortIsClose);
       return;
       };
    devAdr=adr;
@@ -90,6 +97,7 @@ void bootloader::connect_(QString name, int BaudRate , int adr, int cmd){
    switch (cmd) {
   case SRCH :
        this->setStatus("поиск устройства");
+       bootloader::writelog(" ","",false);
        bootloader::writelog("-------> Поиск устройства :","",false);
        writelog("Порт " +Port.portName()+" Скороть "+QString::number(Port.baudRate())+" бод.","",false);
        for (int i=this->devAdr;i<255;i++) {
@@ -104,6 +112,7 @@ void bootloader::connect_(QString name, int BaudRate , int adr, int cmd){
        break;
   case FLSH :
        this->setStatus("прошивка");
+       bootloader::writelog(" ","",false);
        bootloader::writelog("-------> Прошивка :","",false);
        if( clsCon( readHex(Filename, &qbaFileHexStrg, &iFlashStartAdr)) ) return;
        if( getModbusId(devAdr)) setModbusToBootCmd();
@@ -114,6 +123,7 @@ void bootloader::connect_(QString name, int BaudRate , int adr, int cmd){
        break;
   case CMPR :
        this->setStatus("сверка файла");
+       bootloader::writelog(" ","",false);
        bootloader::writelog("-------> Cверка файла :","",false);
        if( clsCon( bootloader::readHex(Filename, &qbaFileHexStrg, &iFlashStartAdr)) ) return;
        if( getModbusId(devAdr)) bootloader::setModbusToBootCmd();
@@ -123,37 +133,43 @@ void bootloader::connect_(QString name, int BaudRate , int adr, int cmd){
        break;
   case SAVE :
        this->setStatus("сохранение образа");
+       bootloader::writelog(" ","",false);
        bootloader::writelog("-------> Cохранение образа :","",false);
        if(getModbusId(devAdr)) setModbusToBootCmd();
        if( clsCon( getBootID() )) return ;
        if( clsCon( readImage(&this->qbaDevHexStrg, 128000,iFlashStartAdr))) return;
-       if(clsCon( writeHex(Filename,qbaFileHexStrg,iFlashStartAdr)))return;
+       if(clsCon( writeHex(Filename,this->qbaDevHexStrg,iFlashStartAdr)))return;
        break;
   case LTST :
        this->setStatus("тест загрузчика");
+       bootloader::writelog(" ","",false);
        bootloader::writelog("-------> Tест загрузчика :","",false);
        if(getModbusId(devAdr)) setModbusToBootCmd();
        if( clsCon(bootloader::getBootID()))return;
        break;
   case NLTS:
+       bootloader::writelog(" ","",false);
        bootloader::writelog("-------> Tест загрузчика :","",false);
        this->setStatus("тест загрузчика");
        if( clsCon(bootloader::getNativeBoot())) return;
        break;
   case EFLH :
        this->setStatus("стираю flahs память");
+       bootloader::writelog(" ","",false);
        bootloader::writelog("-------> Стираю flahs :","",false);
        if( clsCon(bootloader::getBootID() )) return ;
        if( clsCon(bootloader::eraseFlash())) return;
        break;
   case EPRM :
        this->setStatus("стираю память настроек");
+       bootloader::writelog(" ","",false);
        bootloader::writelog("-------> Сброс настроек :","",false);
        if( clsCon(bootloader::getBootID() )) return;
        if(clsCon( bootloader::eraseParam())) return;
        break;
   case _RST :
        this->setStatus("перезагрузка устройства");
+       bootloader::writelog(" ","",false);
        bootloader::writelog("-------> Перезагрузка устройства :","",false);
        Reboot();
        break;
@@ -177,7 +193,7 @@ bool bootloader::getModbusId(int adr)
    crc16::usMBCRC16(req,5);
    Port.readAll();
    Port.write(req ,5+2);
-   Port.flush();
+  // Port.flush();
    while(Port.waitForReadyRead(1000)) {res.append(Port.readAll());};
    _mBDEBUG(res.length());
    if(res == nullptr) {writelog("Нет ответа.","",false);return false;};
@@ -217,7 +233,7 @@ int bootloader::getBootID(QString * id)
    QByteArray req;
    req[0]='I';
    Port.write(req);
-   Port.flush();
+ //  Port.flush();
    QString res="";
    while(Port.waitForReadyRead(300)) {QThread::msleep(10);res+=Port.readAll();};
    if(res==""){writelog("Нет ответа.","",false);return bootloader::resState::TimeOut;};
@@ -235,7 +251,7 @@ int bootloader::getBootID()
    QByteArray req;
    req[0]='I';
    Port.write(req);
-   Port.flush();
+ // Port.flush();
    QString res="";
    while(Port.waitForReadyRead(300)) res+=Port.readAll();
    if(res==""){writelog("Нет ответа.","",false);return bootloader::resState::TimeOut;};
@@ -261,7 +277,7 @@ QByteArray bootloader::sendModbusReq(char * req, int len)
     crc16::usMBCRC16(req,len);
     Port.readAll();
     Port.write(req ,len+2);
-    Port.flush();
+  //  Port.flush();
     QByteArray res;
     while(Port.waitForReadyRead(500)) res.append(Port.readAll());
     if(res.count()==0) return nullptr;
@@ -443,7 +459,7 @@ int bootloader::writeHex(QString filename, QByteArray image, int flashStartAdr)
     };
 
     _mBDEBUG("Размер образа "+ QString::number(image.count()) + " байт.");
-     writelog("Размер образа ","", false);
+     writelog("Размер образа "+ QString::number(image.count()) + " байт.","", false);
 
     for(int i=0; i< static_cast<int>(image.count()/16) ; i++ )
     {
@@ -536,14 +552,14 @@ int bootloader::readImage(QByteArray * image, int size, int baseadr)
     req.clear();
     req[0]='A';
     Port.write(req);
-    Port.flush();
+ //   Port.flush();
     req.clear();
     req.append(static_cast <char> (0x0));
     req.append(static_cast <char> (0x0));
     req.append(static_cast <char> (baseadr >> 16));
     req.append(static_cast <char> (baseadr >> 24));
     Port.write(req);
-    Port.flush();
+  //  Port.flush();
     req.clear();
     while(Port.bytesAvailable()<1)if(!Port.waitForReadyRead(2500)) return TimeOut; ;
     Port.readAll();
@@ -601,13 +617,14 @@ int bootloader::getNativeBoot()
     /*Файл загрузчика*/
     if(!Port.isOpen()) { _mBDEBUG("Порт не открыт."); return PortIsClose;};
     file= QDir::current().absolutePath()+"/loader.hex";
-    this->readHex(file,&loaderImage, &baseadr);
+    writelog("Открываю файл RAM загрузчика ...","", false);
+    if( this->readHex(file,&loaderImage, &baseadr)<0) return FileNotFound;
     /* Синхронизация */
     brate =Port.baudRate();
     Port.setBaudRate(QSerialPort::Baud9600);
     req[0]=0;
     for (int i = 0; i < 512; i++) {Port.write(req);  };
-    Port.flush();
+  //  Port.flush();
     Port.waitForBytesWritten(2000);
     QThread::msleep(1000);
     writelog("Синхронизация ... ОК!","", false);
@@ -619,7 +636,7 @@ int bootloader::getNativeBoot()
     req.append(static_cast<char>((brate>>16)&0xff));
     req.append(static_cast<char>(0));
     Port.write(req);
-    Port.flush();
+ //  Port.flush();
     Port.waitForBytesWritten(2000);
     QThread::msleep(100);
     Port.setBaudRate(brate);
@@ -628,7 +645,7 @@ int bootloader::getNativeBoot()
     req.clear();
     req.append(static_cast<char>(0xd) );
     Port.write(req);
-    Port.flush();
+  //  Port.flush();
     QThread::msleep(100);
     /* Загрузка программы в ОЗУ*/
     writelog("Загрузка в ОЗУ. Завершено 0%", "", false);
@@ -646,11 +663,11 @@ int bootloader::getNativeBoot()
         req.append(static_cast <char> (0x0));
 
         Port.write(req);
-        Port.flush();
+        //Port.flush();
         Port.waitForBytesWritten(2000);
         QThread::msleep(5);
         Port.write(loaderImage.mid(256*i,256));
-        Port.flush();
+        //Port.flush();
         Port.waitForBytesWritten(2000);
         QThread::msleep(100);
         baseadr+=0x100;
@@ -668,7 +685,7 @@ int bootloader::getNativeBoot()
         req.append(static_cast <char> (0x0));
         req.append(static_cast <char> (0x20));
         Port.write(req);
-        Port.flush();
+    //    Port.flush();
         while(Port.waitForReadyRead(500))Port.readAll();
         QString boot_ID;
         this->getBootID(&boot_ID);
@@ -736,10 +753,10 @@ int bootloader::writeImage(QByteArray image, int baseadr)
         req[0]='P';
         Port.write(req);
         Port.write(image.mid(i*256,256));
-        Port.flush();
-        Port.waitForBytesWritten(2000);
+     //   Port.flush();
+     //   Port.waitForBytesWritten(2000);
         QThread::msleep(10);
-        if(!Port.waitForReadyRead(1000))return TimeOut;
+        if(!Port.waitForReadyRead(2000))return TimeOut;
         res=Port.readAll();
         int progres= 100*(i+1)/static_cast<int>(image.count()/256);
         QString str_log = "Прошивка. Завершено " + QString::number( progres )+"%.";

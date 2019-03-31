@@ -39,7 +39,7 @@ private slots:
 
     void on_pushButton_break_clicked();
 
-    void on_bootloader_Status_changed(QString status);
+  //  void on_bootloader_Status_changed(QString status);
 
     void on_pushButton_prog_clicked();
 

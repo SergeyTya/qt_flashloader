@@ -1,3 +1,4 @@
+/*
 #ifndef TEST_H
 #define TEST_H
 
@@ -16,3 +17,4 @@ private slots:
 };
 
 #endif // TEST_H
+*/

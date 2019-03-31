@@ -9,8 +9,7 @@
 #include <QFileDialog>
 #include <QFile>
 #include <QMessageBox>
-
-
+#include <QDateTime>
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
@@ -35,9 +34,12 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(bloader, SIGNAL(close()), thread_bloader, SLOT(deleteLater()));//Удалить к чертям поток
     connect(this, SIGNAL(connect_(QString, int, int, int)), bloader, SLOT(connect_(QString, int, int, int))); //
     connect(bloader, SIGNAL(writelog(QString, QString, bool)), this, SLOT(writelog(QString, QString,bool))); // лог
-    connect(bloader, SIGNAL(setStatus(QString)), this, SLOT(on_bootloader_Status_changed(QString)));
+   // connect(bloader, SIGNAL(setStatus(QString)), this, SLOT(on_bootloader_Status_changed(QString)));
 
     thread_bloader->start();
+
+    QString dtr =__TIMESTAMP__;
+    this->setWindowTitle("Загрузчик МПЧ " + dtr );
 
 }
 
@@ -114,7 +116,9 @@ void MainWindow::on_pushButton_reset_clicked()
 
 void MainWindow::on_pushButton_search_clicked()
 {
-    connect_(ui->comboBox_PortName->currentText(),
+    QString name="/dev/"+ui->comboBox_PortName->currentText();
+
+    connect_(name,
              ui->comboBox_PortSpeed->currentText().toInt(),
              ui->lineEdit_madr->text().toInt(),
             this->LDR_CMD::SRCH);
@@ -136,10 +140,11 @@ void MainWindow::on_pushButton_break_clicked()
     if(!bloader->busy)bloader->blnBreakReq=false;
 }
 
+/*
 void MainWindow::on_bootloader_Status_changed(QString status)
 {
     this->ui->statusBar->showMessage(status);
-}
+}*/
 
 void MainWindow::on_pushButton_prog_clicked()
 {

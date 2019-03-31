@@ -1,3 +1,4 @@
+/*
 #include <QTest>
 #include <QApplication>
 #include <QDir>
@@ -25,3 +26,4 @@ void test::readHex()
 
 }
 
+*/

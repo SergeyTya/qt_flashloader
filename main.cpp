@@ -1,7 +1,7 @@
 #include "mainwindow.h"
 #include <QApplication>
-#include "test.h"
-#include <QTest>
+//#include "test.h"
+//#include <QTest>
 #include <iostream>
 
 
